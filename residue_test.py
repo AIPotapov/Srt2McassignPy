@@ -57,7 +57,10 @@ class Sequence:
             
     def toString(self, format):
         s = ''
-        for key in self.sequence:
+        keylist = self.sequence.keys()
+        #keylist = [int(x) for x in keylist]
+        keylist.sort(key = int)
+        for key in keylist:
             s =  s + "ID: " + str(key)
             s = s +  " Residue: " + self.sequence[key].type
             resi = self.sequence[key]
