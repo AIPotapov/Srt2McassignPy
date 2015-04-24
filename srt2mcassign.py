@@ -34,3 +34,8 @@ a = ent15000['assigned_chem_shift_list_1']['_Atom_chem_shift'].data
 a1 = ent15000['assigned_chem_shift_list_1']['_Chem_shift_experiment'].data
 
 
+
+
+        
+        
+
