@@ -20,9 +20,25 @@ first working version of the Table class
 it not yet thoroughly tested and outline may change in the future
 
 need to work on documentation to the classes
+
+14 may
+update the implementation of _Entry class
+
 """
 import sys
 
+# CONSTANTS
+_RESI_TYPES = ('ASP', 'THR', 'SER', 'GLU', 'PRO', 'GLY',
+              'ALA', 'CYS', 'VAL', 'MET', 'ILE', 'LEU',
+              'TYR', 'PHE', 'HIS', 'LYS', 'ARG', 'TRP',
+               'GLN', 'ASN')
+_RESI_TYPES_BRIEF = ('D', 'T', 'S', 'E', 'P', 'G',
+                    'A', 'C', 'V', 'M', 'I', 'L',
+                    'Y', 'F', 'H', 'K', 'R', 'W',
+                    'Q', 'N')
+_RESI_DICT = dict(zip(_RESI_TYPES, _RESI_TYPES_BRIEF))
+_RESI_DICT_REVERSE = dict(zip(_RESI_TYPES_BRIEF, _RESI_TYPES))
+# end CONSTANTS
 
 class Residue(object):
     """
@@ -71,10 +87,13 @@ class Residue(object):
         else:
             return None
     # end get_atom_err    
+    
+    def get_resi_type(self):
+        return self.type
 
     def __str__(self):
         s = ''
-        form = ('N', 'CO', 'CA', 'CB', 'CG', 'CD')
+        form = ('N', 'C', 'CA', 'CB', 'CG', 'CD')
         for item in form:
             if self.atom_chem_shift.get(item):
                 s = s + item + ': ' + str(self.atom_chem_shift[item]) + ' '
@@ -158,6 +177,11 @@ class Sequence(object):
             return list
         else:
             return self.id_list
+            
+    def delete_id(self, id):
+        if id in self.id_list:
+            del self.sequence[id]
+        
 
     def get_residue(self, id):
         if id in self.sequence:
@@ -179,35 +203,79 @@ class Table(object):
 
     def __init__(self, seq):
         if type(seq).__name__ != 'Sequence':
-            sys.exit('No sequence at the input')
-        self.sequence = seq
+            sys.exit('No sequence at the input')        
+        self.sequence = seq.copy()  # ensures immutability of Table
+        # when sequence is changed
+        self.table_type = ''
         self.entry_list = []
     # end __init__
-
-    def set_entry_degeneracy(self,
-                             name_list,
-                             cs_list,
-                             id,
-                             degeneracy,
-                             type_list):
+   
+    def copy(self):
+        copy = Table(self.sequence)
+        copy.entry_list = self.entry_list
+        copy.table_type = self.table_type
+        return copy
+    # end copy
+    
+    def get_entry(self, id):
+        """ 
+        to be implemented later
+        """
         pass
+    # end get_entry_degeneracy
 
-    def set_entry_type(self, id, type):
-        pass
+    def set_entry(self, id, resi_type=[], degeneracy = 1):
+        """
+        to be implemented later
+        currently only works to update the
+        degeneracy, or residue type
+        
+        value could be either integer for degeneracy
+        of a string of characters 'YHF' for resi_type
+        
+        it currently does not support adding entries that do not 
+        yet exist, only changes the entry field
+        """
+        if type(id) is not int:
+            return
+            
+        if id < 0 or id > len(self.entry_list):
+            return
+        
+        self.entry_list[id].degeneracy = degeneracy
+                   
+        if resi_type == []:
+            return
+        else:
+            l = []
+            for item in resi_type:                
+                print item
+                if item in _RESI_TYPES:
+                    l.append(item)
+                if item in _RESI_TYPES_BRIEF:
+                    l.append(_RESI_DICT_REVERSE[item])                
+                self.entry_list[id].resi_type = l                 
+    # end set_entry
 
     def init_signal_table(self, table_type = 'NCACX',
-                                 format = ['N', 'CO', 'CA', 'CB', 'CG']):
+                                 format = ['N', 'C', 'CA', 'CB', 'CG']):
         """
-        this method prepares the signal table based on the type of table
+        prepares the signal table based on the type of table
         and specified output format
         Usage: print_signal_table(table_type = 'NCACX',
                                  format= ['N', 'CO', 'CA', 'CB', CG])
+                                 
+        Currently supported table types
+            NCACX
+            N(CO)CACB
+            NCOCX
         """
         # based on the format split the atoms into two groups
         # ones that belong to one residue and ones that belong to the next
         self.entry_list = []
         this_that = []
         
+        self.table_type = table_type
         if table_type == 'NCACX':
             for item in format:                
                 this_that.append(self.THIS)
@@ -223,7 +291,7 @@ class Table(object):
             for item in format:
                 if item == 'N':
                     this_that.append(self.THAT)
-                elif item == 'CO':
+                elif item == 'C':
                     this_that.append(None)                    
                 else:
                     this_that.append(self.THIS)
@@ -256,7 +324,11 @@ class Table(object):
                     chem_shift_list.append(cs)
                     chem_shift_err_list.append(cs_err)
                 # endfor
-                e = _Entry(atom_type_list, chem_shift_list, chem_shift_err_list)
+                
+                e = _Entry(atom_type_list,
+                           chem_shift_list,
+                           chem_shift_err_list,
+                           resi_type = [resi_this.get_resi_type()])
                 self.entry_list.append(e)
             # endif                    
     # end init_signal_table
@@ -266,12 +338,48 @@ class Table(object):
         count = 0
         for item in self.entry_list:
             string = string + str(item) + "\n"
-            count = count + 1
+            count = count + 1          
         string = str(count) + "\n" + string
         return string
         # endfor
         
     # end __str__
+        
+    def print_MCASSIGN(self, format = ['N', 'CA', 'CB', 'CG']):
+        """
+        prints the table in MCASSIGN format
+        """
+        output = ""
+        # table header (excessive)        
+        #output = str(self.table_type) + "\n"
+        output = output + \
+                  str(len(self.entry_list)) + "," +  \
+                  str(len(format)) + "\n"
+        #for item in format:
+        #    output = output + item + "  "
+        #output = output + "\n"
+        # table body        
+        for entry in self.entry_list:
+            chem_shift_list = entry.get_CS(format)
+            chem_shift_err_list = entry.get_CS_err(format)
+            for item in chem_shift_list:
+                if item is None:
+                    output = output + "1e6" + "\t"
+                else:
+                    output = output + str(item) + "\t"
+            for item in chem_shift_err_list:
+                if item is None:
+                    output = output + "1e6" + "\t"
+                else:
+                    output = output + str(item) + "\t"        
+            output = output + str(entry.degeneracy) + "\t"
+            
+            for item in entry.resi_type:
+                output = output + _RESI_DICT[item]
+            output = output + "\n"
+        return output
+        pass
+    # end print_MCASSIGN
 # end Table class definition
 
 
@@ -281,8 +389,11 @@ class _Entry(object):
     # entry = {}
     def __init__(self, atom_type_list,
                        chem_shift_list,
-                       chem_shift_err_list = []):
+                       chem_shift_err_list = [],
+                       resi_type =['None'] ):
         
+        self.degeneracy = 1
+        self.resi_type = resi_type
         self.entry = {}
         if chem_shift_err_list == []:
             for itemp in chem_shift_list:
@@ -292,21 +403,47 @@ class _Entry(object):
                 sys.exit('Wrong entries: number ' +
                          'of items in the argument lists must be the same')
        
-        else:
-            self.entry = dict(zip(atom_type_list, chem_shift_list))
+        else:         
+            values = []
+            values = zip(chem_shift_list, chem_shift_err_list)           
+            self.entry = dict(zip(atom_type_list, values))
+            
+        
+            
     # end __init__
-
-    def get(self, name_list):
-        return self.entry[name_list]
     
-
+    def get_CS(self, atom_list):
+        l = []
+        for item in atom_list:
+            if item in self.entry:
+                l.append(self.entry[item][0])
+            else:
+                l.append(None)
+        return l
+   # end get_CS
+        
+    def get_CS_err(self, atom_list):
+        l = []
+        for item in atom_list:
+            if item in self.entry:
+                l.append(self.entry[item][1])
+            else:
+                l.append(None)
+        return l     
+    # end get_CS_err
+        
     def __str__(self):
         return str(self.entry)
         #return string
+    # end __str__
+        
 # end Entry class definition
 
 
 # test client
+"""
+
+# TESTING RESIDUE CLASS
 a = Residue('Ala')
 a.add_atom('CA', 44.5)
 form = ['CA', 'CB', 'N']
@@ -316,7 +453,7 @@ print a.get_chem_shift('CA')
 if a.get_chem_shift('N') is None:
     print "no such item"
 
-# test Sequence class methods
+# TESTING SEQUENCE CLASS
 print "*****testing Sequence****"
 b = Sequence()
 b.add_atom(1, 'Cys', 'CA', 34.5)
@@ -327,7 +464,6 @@ b.add_atom(2, 'Ala', 'CG', 7.5)
 b.add_atom(3, 'Bla', 'CA', 5.5)
 b.add_atom(3, 'Bla', 'CB', 6.5)
 b.add_atom(3, 'Bla', 'CG', 7.5)
-
 
 c = b.copy()
 d = c.get_slice([1, 2, 3])
@@ -342,24 +478,23 @@ else:
 
 print b.get_id_list()
 
-# test  _Entry class
+# TESTING _ENTRY CLASS
 print "****testing _Entry*****"
 entry = _Entry(['CA', 'CB', 'CD'], [1, 2, 3])
 print entry
 #entry = _Entry(['CA', 'CB'], [1, 2, 3])
 print entry
+print "+++++++++++++++++"
+print entry.get_CS(['CA', 'CB', 'CG'])
+print "+++++++++++++++++"
 
+
+# TESTING TABLE CLASS
 print "*******testing Table*********"
-
-table = Table(b)
-table.init_signal_table()
-print table
-
 
 atom_names = ('CA', 'CB', 'CG', 'CD', 'CO', 'N')
 resi_types = ('Ala', 'Cys', 'Asp', 'Glu', 'Phe', 'Gly',
               'His', 'Ile', 'Lys', 'Leu', 'Met', 'Gln')
-
 
 import random
 
@@ -371,10 +506,13 @@ for i in range(10):
     for name in atom_names:
         seq1.add_atom(i + 1, resi_name, name, round((random.gauss(50, 20)), 2))
 
+print "**********PRINT SEQUENCE**********"
 print seq1
 table2 = Table(seq1)
 table2.init_signal_table()
+print "**********PRINT NCACX TABLE**********"
 print table2
 table2.init_signal_table(table_type = 'N(CO)CACB')
+print "**********PRINT N(CO)CACB TABLE**********"
 print table2
-
+"""
