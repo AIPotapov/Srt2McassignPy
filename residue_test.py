@@ -29,16 +29,17 @@ import sys
 
 # CONSTANTS
 _RESI_TYPES = ('ASP', 'THR', 'SER', 'GLU', 'PRO', 'GLY',
-              'ALA', 'CYS', 'VAL', 'MET', 'ILE', 'LEU',
-              'TYR', 'PHE', 'HIS', 'LYS', 'ARG', 'TRP',
+               'ALA', 'CYS', 'VAL', 'MET', 'ILE', 'LEU',
+               'TYR', 'PHE', 'HIS', 'LYS', 'ARG', 'TRP',
                'GLN', 'ASN')
 _RESI_TYPES_BRIEF = ('D', 'T', 'S', 'E', 'P', 'G',
-                    'A', 'C', 'V', 'M', 'I', 'L',
-                    'Y', 'F', 'H', 'K', 'R', 'W',
-                    'Q', 'N')
+                     'A', 'C', 'V', 'M', 'I', 'L',
+                     'Y', 'F', 'H', 'K', 'R', 'W',
+                     'Q', 'N')
 _RESI_DICT = dict(zip(_RESI_TYPES, _RESI_TYPES_BRIEF))
 _RESI_DICT_REVERSE = dict(zip(_RESI_TYPES_BRIEF, _RESI_TYPES))
 # end CONSTANTS
+
 
 class Residue(object):
     """
@@ -58,9 +59,9 @@ class Residue(object):
         self.atom_chem_shift_err = {}
     # end __init__
 
-    def add_atom(self, atom_type, chem_shift, chem_shift_err = 0.2):
-        """        
-        adds atom to a residue. 
+    def add_atom(self, atom_type, chem_shift, chem_shift_err=0.2):
+        """
+        adds atom to a residue.
         Usage: add_atom(atom_type, chem_shift) default chem_shift_err = 0.2
         or   : add_atom(atom_type, chem_shift, chem_shift_err)
         """
@@ -77,7 +78,7 @@ class Residue(object):
         else:
             return None
     # end get_atom
-    
+
     def get_chem_shift_err(self, atom_type):
         """
         retrieve atom chemical shift error from a residue
@@ -86,8 +87,8 @@ class Residue(object):
             return self.atom_chem_shift_err[atom_type]
         else:
             return None
-    # end get_atom_err    
-    
+    # end get_atom_err
+
     def get_resi_type(self):
         return self.type
 
@@ -102,26 +103,31 @@ class Residue(object):
         return s
 # end Residue class definition
 
-"""
-Sequence contains residues in a dictionary
-and provides access to the elements of sequence
-"""
+
 class Sequence(object):
     """
+    Sequence contains residues in a dictionary
+    and provides access to the elements of sequence
+
+    Instance variables:    
     sequence = {}
     id_list = []
     """
-    
+
     def __init__(self):
         self.sequence = {}
         self.id_list = []
     # end __init__
+        
+    def __len__(self):
+        return len(self.sequence)
+    # end 
 
     def add_atom(self, resn,
                  res_type,
                  atom_type,
                  chem_shift,
-                 chem_shift_err = 0.2):
+                 chem_shift_err=0.2):
         """
         Adds atom to sequence
         Usage: add_atom(self, resn,
@@ -177,11 +183,11 @@ class Sequence(object):
             return list
         else:
             return self.id_list
-            
+
     def delete_id(self, id):
         if id in self.id_list:
             del self.sequence[id]
-        
+    # end delete_id
 
     def get_residue(self, id):
         if id in self.sequence:
@@ -198,41 +204,41 @@ class Table(object):
     entry_list = []
     sequence = Sequence()
     """
-    THIS = True;
-    THAT = False;
+    THIS = True
+    THAT = False
 
     def __init__(self, seq):
         if type(seq).__name__ != 'Sequence':
-            sys.exit('No sequence at the input')        
+            sys.exit('No sequence at the input')
         self.sequence = seq.copy()  # ensures immutability of Table
         # when sequence is changed
         self.table_type = ''
         self.entry_list = []
     # end __init__
-   
+
     def copy(self):
         copy = Table(self.sequence)
         copy.entry_list = self.entry_list
         copy.table_type = self.table_type
         return copy
     # end copy
-    
+
     def get_entry(self, id):
-        """ 
+        """
         to be implemented later
         """
         pass
     # end get_entry_degeneracy
 
-    def set_entry(self, id, resi_type=[], degeneracy = 1):
+    def set_entry(self, id, resi_type=[], degeneracy=1):
         """
         to be implemented later
         currently only works to update the
         degeneracy, or residue type
-        
+
         value could be either integer for degeneracy
         of a string of characters 'YHF' for resi_type
-        
+
         it currently does not support adding entries that do not 
         yet exist, only changes the entry field
         """
@@ -257,8 +263,8 @@ class Table(object):
                 self.entry_list[id].resi_type = l                 
     # end set_entry
 
-    def init_signal_table(self, table_type = 'NCACX',
-                                 format = ['N', 'C', 'CA', 'CB', 'CG']):
+    def init_signal_table(self, table_type='NCACX',
+                          format=['N', 'C', 'CA', 'CB', 'CG']):
         """
         prepares the signal table based on the type of table
         and specified output format
@@ -328,7 +334,7 @@ class Table(object):
                 e = _Entry(atom_type_list,
                            chem_shift_list,
                            chem_shift_err_list,
-                           resi_type = [resi_this.get_resi_type()])
+                           resi_type=[resi_this.get_resi_type()])
                 self.entry_list.append(e)
             # endif                    
     # end init_signal_table
@@ -345,23 +351,24 @@ class Table(object):
         
     # end __str__
         
-    def print_MCASSIGN(self, format = ['N', 'CA', 'CB', 'CG']):
+    def print_mcassign(self, format=['N', 'CA', 'CB', 'CG']):
         """
         prints the table in MCASSIGN format
         """
         output = ""
         # table header (excessive)        
-        #output = str(self.table_type) + "\n"
+        # output = str(self.table_type) + "\n"
         output = output + \
-                  str(len(self.entry_list)) + "," +  \
-                  str(len(format)) + "\n"
-        #for item in format:
+            str(len(self.entry_list)) + "," +  \
+            str(len(format)) + "\n"
+        # FROM OLDER VERSION
+        # for item in format:
         #    output = output + item + "  "
-        #output = output + "\n"
+        # output = output + "\n"
         # table body        
         for entry in self.entry_list:
-            chem_shift_list = entry.get_CS(format)
-            chem_shift_err_list = entry.get_CS_err(format)
+            chem_shift_list = entry.get_cs(format)
+            chem_shift_err_list = entry.get_cs_err(format)
             for item in chem_shift_list:
                 if item is None:
                     output = output + "1e6" + "\t"
@@ -388,9 +395,9 @@ class _Entry(object):
     # self:
     # entry = {}
     def __init__(self, atom_type_list,
-                       chem_shift_list,
-                       chem_shift_err_list = [],
-                       resi_type =['None'] ):
+                 chem_shift_list,
+                 chem_shift_err_list=[],
+                 resi_type=['None']):
         
         self.degeneracy = 1
         self.resi_type = resi_type
@@ -399,7 +406,7 @@ class _Entry(object):
             for itemp in chem_shift_list:
                 chem_shift_err_list.append(0.2)
         if len(chem_shift_list) != len(atom_type_list) or \
-             len(atom_type_list) != len(chem_shift_err_list):
+           len(atom_type_list) != len(chem_shift_err_list):
                 sys.exit('Wrong entries: number ' +
                          'of items in the argument lists must be the same')
        
@@ -407,12 +414,9 @@ class _Entry(object):
             values = []
             values = zip(chem_shift_list, chem_shift_err_list)           
             self.entry = dict(zip(atom_type_list, values))
-            
-        
-            
     # end __init__
     
-    def get_CS(self, atom_list):
+    def get_cs(self, atom_list):
         l = []
         for item in atom_list:
             if item in self.entry:
@@ -420,9 +424,9 @@ class _Entry(object):
             else:
                 l.append(None)
         return l
-   # end get_CS
+    # end get_cs
         
-    def get_CS_err(self, atom_list):
+    def get_cs_err(self, atom_list):
         l = []
         for item in atom_list:
             if item in self.entry:
@@ -430,11 +434,11 @@ class _Entry(object):
             else:
                 l.append(None)
         return l     
-    # end get_CS_err
+    # end get_cs_err
         
     def __str__(self):
         return str(self.entry)
-        #return string
+        # return string
     # end __str__
         
 # end Entry class definition
@@ -485,7 +489,7 @@ print entry
 #entry = _Entry(['CA', 'CB'], [1, 2, 3])
 print entry
 print "+++++++++++++++++"
-print entry.get_CS(['CA', 'CB', 'CG'])
+print entry.get_cs(['CA', 'CB', 'CG'])
 print "+++++++++++++++++"
 
 

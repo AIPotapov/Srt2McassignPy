@@ -37,6 +37,23 @@ RESI_TYPES_BRIEF = ('D', 'T', 'S', 'E', 'P', 'G',
                     'Y', 'F', 'H', 'K', 'R', 'W',
                     'Q', 'N')
 # end CONSTANTS
+                    
+def knock_out(seq, threshold=0.1, adj='no'):
+    import random as rnd
+    sample_size = int(threshold * len(seq))
+    if adj is 'no':
+        select_id = rnd.sample(seq.get_id_list(),
+                               len(seq) - sample_size)        
+    elif adj is 'yes':
+        id_list = seq.get_id_list()
+        id_list.sort()
+        r = rnd.choice(id_list)
+        if r + sample_size < len(seq):
+            select_id = id_list[0: r]
+            select_id.extend(id_list[r + sample_size: len(seq)])            
+        else:
+            select_id = id_list[r - len(seq) + sample_size : r]
+    return seq.get_slice(select_id)
 
 seq = residue_test.Sequence()
 entry = bmrb.entry.fromFile('15156.srt')
@@ -64,7 +81,13 @@ item = table_list[0]
 item.set_entry(0, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
 item.set_entry(50, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
 item.set_entry(100, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
-print item.print_MCASSIGN()   
+#print item.print_mcassign()   
+print seq
+for i in range(100):
+    seq2 = knock_out(seq, adj = 'yes', threshold = 0.2)
+    print len(seq2, )
+    #print seq2.get_id_list()
+    #    print seq.get_id_list()
 
 """
 # EARLY TESTS
@@ -86,3 +109,4 @@ ent15000['entry_information']['_Entry_author'].data
 a = ent15000['assigned_chem_shift_list_1']['_Atom_chem_shift'].data
 a1 = ent15000['assigned_chem_shift_list_1']['_Chem_shift_experiment'].data
 """
+
