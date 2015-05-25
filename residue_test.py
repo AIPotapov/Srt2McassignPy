@@ -24,8 +24,12 @@ need to work on documentation to the classes
 14 may
 update the implementation of _Entry class
 
+25 may
+move Mcassign and its helper class _TableLine from srt2mcassign
+
 """
 import sys
+import re
 
 # CONSTANTS
 _RESI_TYPES = ('ASP', 'THR', 'SER', 'GLU', 'PRO', 'GLY',
@@ -112,16 +116,34 @@ class Sequence(object):
     Instance variables:    
     sequence = {}
     id_list = []
+    seqAA = []
     """
 
     def __init__(self):
         self.sequence = {}
         self.id_list = []
+        self.seqAA = {}
     # end __init__
         
     def __len__(self):
         return len(self.sequence)
-    # end 
+    # end
+    
+    def set_seqAA(self, dictionary):        
+        keys = dictionary.keys()
+        for id in keys:
+            val = dictionary[id]
+            if val in _RESI_TYPES_BRIEF:
+                self.seqAA[id] = val
+            elif val in _RESI_TYPES:
+                self.seqAA[id] = _RESI_DICT[val]
+            else:
+                print "ERROR RESIDUE TYPE"        
+    # end set_seqAA
+        
+    def get_seqAA(self):
+        return self.seqAA
+    # end get_seqAA
 
     def add_atom(self, resn,
                  res_type,
@@ -162,6 +184,8 @@ class Sequence(object):
         copy = Sequence()
         for item in self.sequence:
             copy.sequence[item] = self.sequence[item]
+        copy.seqAA = self.seqAA
+        copy.id_list = self.id_list
         return copy
     # end copy
 
@@ -194,6 +218,28 @@ class Sequence(object):
             return self.sequence[id]
         else:
             return None
+            
+            
+            
+            
+    def knock_out(self, threshold=0.1, adj='no'):
+        import random as rnd
+        seq = self
+        sample_size = int(threshold * len(seq))
+        if adj is 'no':
+            select_id = rnd.sample(seq.get_id_list(),
+                                   len(seq) - sample_size)        
+        elif adj is 'yes':
+            id_list = seq.get_id_list()
+            id_list.sort()
+            r = rnd.choice(id_list)
+            if r + sample_size < len(seq):
+                select_id = id_list[0: r]
+                select_id.extend(id_list[r + sample_size: len(seq)])            
+            else:
+                select_id = id_list[r - len(seq) + sample_size : r]
+        return seq.get_slice(select_id)
+
 # end Sequence class definition
 
 
@@ -351,6 +397,17 @@ class Table(object):
         
     # end __str__
         
+    def print_seqAA(self):
+        # return self.sequence.get_seqAA()
+        string = ''
+        d = self.sequence.get_seqAA()
+        keys = d.keys()
+        keys.sort()
+        for i in keys:
+            string = string + d[i]
+        return string
+    # end print_seqAA
+        
     def print_mcassign(self, format=['N', 'CA', 'CB', 'CG']):
         """
         prints the table in MCASSIGN format
@@ -440,8 +497,86 @@ class _Entry(object):
         return str(self.entry)
         # return string
     # end __str__
-        
 # end Entry class definition
+
+class Mcassign:
+    def __init__(self, filename):        
+        alist = []
+        with open(filename, 'r') as f:
+            # process each line
+            for line in f:
+                l = re.split('\s+',line)
+                l = [item for item in l if item!='']
+                alist.append(l)            
+            # end line processing
+        self.list_strings = alist
+        # end reading        
+        
+        self.list_floats = []
+        # calculate the list of indices with chemical shifts
+        length = len(self.list_strings[0])
+        s1 = 3
+        s2 = 3 + (length - 4)/2 - 1
+        s3 = 3 + (length - 4)/2 + 1
+        s4 = length - 1
+        a = range(s1, s2 + 1, 1)
+        print a
+        a1 = range(s3, s4 + 1, 1)
+        print a1
+        a.extend(a1)
+        l = []
+        for item in self.list_strings:
+            item2 = []
+            for i in a:
+                item2.append(float(item[i]))           
+            l.append(item2)        
+        self.list_floats = l
+        
+        self.list_table_line = []
+        for item in self.list_floats:
+            self.list_table_line.append(_TableLine(item))        
+    # end __init__
+            
+    def compare(self, that):
+        similar = []
+        different = []
+        for line, line2 in zip(self.list_table_line, self.list_strings):
+            if line in that.list_table_line:
+                similar.append(line2)
+            else:
+                different.append(line2)
+        return {'similar': similar, 'different': different}
+        # calculate the list of indices with chemical shifts
+    # end compare
+
+# help class for Mcassign class
+class _TableLine:
+    def __init__(self, l):
+        self.list = l
+    # end __init__
+        
+    def __cmp__(self, that):
+        l = []
+        for item1, item2 in zip(self.list, that.list):
+            l.append(item1 - item2)
+        
+        # equality testing        
+        s = 0
+        for item in l:
+            s = s + item*item
+        if s < 0.1:
+            return 0
+        
+        # determine item inequality
+        for item in l:
+            if item < 0:
+                return -1
+            if item > 0:
+                return 1        
+# end Mcassing class definition
+
+
+
 
 
 # test client

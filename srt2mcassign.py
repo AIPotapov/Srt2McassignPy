@@ -19,12 +19,27 @@ My objects are in fact mutable,
  The first object in the table got changed
  I have to be careful with this and send copies of objects
  or alternatively create new object each time
+ 
+ 22 may added knock_out function
+ added reading in of the sequence from bmrb file (it should be later
+ used to construct sequence file of for the mcassign)
+ the dictionary with sequence will be stored along with the Sequence
+ 
+ 25 may 
+ 1. added Mcassign class
+ which data structure is constructed by parsing mcassign output file
+ the data structure can be compared to another data structure
+ the results can be used to give a report about similarity of difference
+ of assignments with varying length
+ 2. Move knock_out to Sequence method
+ 
 """
 
 
 import sys
 sys.path.append("../sans_python/")
 import bmrb
+sys.path.append("./")
 import residue_test
 
 # CONSTANTS
@@ -38,42 +53,60 @@ RESI_TYPES_BRIEF = ('D', 'T', 'S', 'E', 'P', 'G',
                     'Q', 'N')
 # end CONSTANTS
                     
-def knock_out(seq, threshold=0.1, adj='no'):
-    import random as rnd
-    sample_size = int(threshold * len(seq))
-    if adj is 'no':
-        select_id = rnd.sample(seq.get_id_list(),
-                               len(seq) - sample_size)        
-    elif adj is 'yes':
-        id_list = seq.get_id_list()
-        id_list.sort()
-        r = rnd.choice(id_list)
-        if r + sample_size < len(seq):
-            select_id = id_list[0: r]
-            select_id.extend(id_list[r + sample_size: len(seq)])            
-        else:
-            select_id = id_list[r - len(seq) + sample_size : r]
-    return seq.get_slice(select_id)
 
+
+
+
+
+# MAIN BODY OF THE PROGRAM
 seq = residue_test.Sequence()
 entry = bmrb.entry.fromFile('15156.srt')
-#entry.printTree()
+entry.printTree()
 
+
+# process the residue type entries to get full sequence
+saveframeAA = entry.getSaveframesByCategory('entity')
+for saveframe in saveframeAA:
+    loopAA = saveframe.getLoopByCategory('Entity_comp_index')
+    Data = loopAA.getDataByTag(['ID', 'Comp_ID'])    
+    comp_ID = [row[1] for row in Data]
+    ID = [row[0] for row in Data]
+    numID = []
+    for item in ID:
+        numID.append(int(item))
+    sequenceAA = dict(zip(numID, comp_ID))
+  
+
+seq.set_seqAA(sequenceAA)
+print seq.get_seqAA()
+
+
+
+
+# process the chemical shift entries
 saveframeCS = entry.getSaveframesByCategory('assigned_chemical_shifts')
 table_list = []
+
 for saveframe in saveframeCS:
     loopCS = saveframe.getLoopByCategory('Atom_chem_shift')
     Data = loopCS.getDataByTag(['Seq_ID','Comp_ID','Atom_ID','Val'])
     for item in Data:
         seq.add_atom(int(item[0]), item[1], item[2], item[3])
     #print seq
-    table = Table(seq)
+    table = residue_test.Table(seq)
     table.init_signal_table(table_type = 'N(CO)CACB')    
     table_list.append(table.copy())    
     table.init_signal_table(table_type = 'NCACX')    
     table_list.append(table.copy())
     #print table
 
+
+
+
+
+""" 
+ this is just for testing
+"""
 #for item in table_list:
 #    print item.print_MCASSIGN()
 item = table_list[0]   
@@ -82,31 +115,21 @@ item.set_entry(0, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
 item.set_entry(50, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
 item.set_entry(100, resi_type = ['MET','ASP','GLU','GLY','C','A','X'])
 #print item.print_mcassign()   
-print seq
-for i in range(100):
-    seq2 = knock_out(seq, adj = 'yes', threshold = 0.2)
-    print len(seq2, )
+#print seq
+for i in range(10):
+    seq2 = seq.knock_out(adj = 'yes', threshold = 0.2)
+    print len(seq2)
+print item.print_seqAA()
+print item.sequence.get_seqAA()
+
+print "************TESTING MCASSIGN PARSING**********"
+
+m1 = Mcassign('HBVdd001.txt')
+m2 = Mcassign('HBVdd002.txt')
+comp = m1.compare(m2)
+print len(comp['similar'])
+print len(comp['different'])
+
+
     #print seq2.get_id_list()
     #    print seq.get_id_list()
-
-"""
-# EARLY TESTS
-
-ent15000 = bmrb.entry.fromDatabase(15000)
-ent15000.printTree()
-
-ent15000['entry_information']
-ent15000['entry_information']['_Entry_author']
-
-ent15000_2 = bmrb.entry.fromDatabase(15000)
-del ent15000_2['entry_information']
-
-bmrb.diff(ent15000, ent15000_2)
-
-ent15000['entry_information']['_Entry_author'].columns
-ent15000['entry_information']['_Entry_author'].data
-
-a = ent15000['assigned_chem_shift_list_1']['_Atom_chem_shift'].data
-a1 = ent15000['assigned_chem_shift_list_1']['_Chem_shift_experiment'].data
-"""
-
