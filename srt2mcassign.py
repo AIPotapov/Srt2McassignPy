@@ -55,9 +55,6 @@ RESI_TYPES_BRIEF = ('D', 'T', 'S', 'E', 'P', 'G',
                     
 
 
-
-
-
 # MAIN BODY OF THE PROGRAM
 seq = residue_test.Sequence()
 entry = bmrb.entry.fromFile('15156.srt')
@@ -79,8 +76,6 @@ for saveframe in saveframeAA:
 
 seq.set_seqAA(sequenceAA)
 print seq.get_seqAA()
-
-
 
 
 # process the chemical shift entries
@@ -124,8 +119,8 @@ print item.sequence.get_seqAA()
 
 print "************TESTING MCASSIGN PARSING**********"
 
-m1 = Mcassign('HBVdd001.txt')
-m2 = Mcassign('HBVdd002.txt')
+m1 = residue_test.Mcassign('HBVdd001.txt')
+m2 = residue_test.Mcassign('HBVdd002.txt')
 comp = m1.compare(m2)
 print len(comp['similar'])
 print len(comp['different'])

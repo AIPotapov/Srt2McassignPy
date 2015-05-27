@@ -2,24 +2,21 @@
 """
 Created on Sun Apr 19 22:26:14 2015
 
-@author: Alexey Potapov
-Definition and test client for Residue class
-
-other possible modifications - perhaps in future there is going
-to be a need for fixed format of atom and residue names
+Author: Alexey Potapov
+Module contains classes for constructing MCASSIGN input files
+and parsing MCASSIGN output files
 
 some methods are not safe because no format or null
 checking takes place
 
+Progress: 
 3 may added get_residue
 and get_id_list methods
 implementation of Table Class - not tested yet
 
-4 modify Residue class to include chem_shift_err
+4 may modify Residue class to include chem_shift_err
 first working version of the Table class
 it not yet thoroughly tested and outline may change in the future
-
-need to work on documentation to the classes
 
 14 may
 update the implementation of _Entry class
@@ -47,16 +44,9 @@ _RESI_DICT_REVERSE = dict(zip(_RESI_TYPES_BRIEF, _RESI_TYPES))
 
 class Residue(object):
     """
-    Residue class stores the information associated with a particular residue
-    from NMR-STAR loops
+    Residue class stores the information associated with
+    a particular residue from NMR-STAR loops
     """
-    """
-    type = ''  # residue type such as Ala, Cys, Leu etc.
-    atom_chem_shift = {}  # a dictionary of key:value where key -  atom type
-    atom_chem_shift_err = {}
-    """
-    # such as Ca, Cb, Cg etc and value - chemical shift value
-
     def __init__(self, type):
         self.type = type
         self.atom_chem_shift = {}
@@ -110,26 +100,42 @@ class Residue(object):
 
 class Sequence(object):
     """
-    Sequence contains residues in a dictionary
-    and provides access to the elements of sequence
-
+    Constructs a dictionary of Residues in a sequence
+    provides access to them, supports getting slices from 
+    sequence and random removal of residues.
+    ***
+    Residues contain chemical shift information, so 
+    Sequence contains only assigned residue objects
+    if a particular residue is not assigned it will not 
+    be part of the Sequence data structure
+    ***
     Instance variables:    
-    sequence = {}
-    id_list = []
-    seqAA = []
+    sequence = {}   - sequence dictionary containing {id : Residue}
+    id_list = []    - list of valid ids
+    seqAA = []      - amino acid sequence, including ALL residues
+                      both assigned/unassigned ones
     """
 
-    def __init__(self):
+    def __init__(self, name = 'bmrb_entry'):
         self.sequence = {}
         self.id_list = []
         self.seqAA = {}
+        self.name = name
     # end __init__
+        
+    def change_name(self, name):
+        self.name = name
+    # change name of the sequence
         
     def __len__(self):
         return len(self.sequence)
     # end
     
-    def set_seqAA(self, dictionary):        
+    def set_seqAA(self, dictionary):
+        """
+        sets amino acid sequence, including ALL residues
+        both assigned/unassigned ones
+        """
         keys = dictionary.keys()
         for id in keys:
             val = dictionary[id]
@@ -142,8 +148,29 @@ class Sequence(object):
     # end set_seqAA
         
     def get_seqAA(self):
+        """
+        returns amino acid sequence, including ALL residues
+        both assigned/unassigned ones
+        """        
         return self.seqAA
     # end get_seqAA
+        
+    def print_seqAA(self):
+        """
+        returns amino acid sequence as a string of characters
+        """
+        # return self.sequence.get_seqAA()
+        string = ''
+        d = self.seqAA
+        keys = d.keys()
+        keys.sort()
+        for i in keys:
+            string = string + d[i]
+        return string
+    # end print_seqAA
+  
+        
+        
 
     def add_atom(self, resn,
                  res_type,
@@ -152,11 +179,8 @@ class Sequence(object):
                  chem_shift_err=0.2):
         """
         Adds atom to sequence
-        Usage: add_atom(self, resn,
-                 res_type,
-                 atom_type,
-                 chem_shift,
-                 chem_shift_err = 0.2)
+        resn - residue number
+        res_type - type of residue Ala, Met etc.        
         """
         if self.sequence.get(resn) is not None:
             # print "residue exists"
@@ -181,6 +205,9 @@ class Sequence(object):
     # end __str__
 
     def copy(self):
+        """
+        makes a deep copy of the Sequence object        
+        """
         copy = Sequence()
         for item in self.sequence:
             copy.sequence[item] = self.sequence[item]
@@ -189,14 +216,22 @@ class Sequence(object):
         return copy
     # end copy
 
-    def get_slice(self, list):
+    def get_slice(self, id_list):
+        """
+        returns a slice from the Sequence based on the list of IDs
+        preserves the amino acid sequence
+        """
         new = Sequence()
-        for i in list:
+        for i in id_list:
             if self.sequence.get(i):
                 new.sequence[i] = self.sequence[i]
+                new.id_list.append(i)        
         return new
 
     def get_id_list(self):
+        """
+        returns the list of Residue IDs in the Sequence
+        """
         if self.id_list == []:
             list = []
             keylist = self.sequence.keys()
@@ -209,20 +244,33 @@ class Sequence(object):
             return self.id_list
 
     def delete_id(self, id):
+        """
+        deletes a Residue with specified ID
+        """
         if id in self.id_list:
             del self.sequence[id]
+            self.id_list.remove(id) # this works because id is unique
     # end delete_id
 
     def get_residue(self, id):
+        """
+        returns a Residue of the Sequence based on its ID
+        """
         if id in self.sequence:
             return self.sequence[id]
         else:
             return None
             
-            
-            
-            
     def knock_out(self, threshold=0.1, adj='no'):
+        """
+        Constructs a new Sequence, where threshold * 100 % of 
+        Residue are randomly removed
+        Two modes are possible :
+        1) a sample of threshold*Sequence_length residues are 
+        picked randomly, adjacency (adj)= 'yes'
+        2) threshold*Sequence_length residues are picked in succession
+        along the sequence adjacency (adj) = 'no'
+        """
         import random as rnd
         seq = self
         sample_size = int(threshold * len(seq))
@@ -239,16 +287,18 @@ class Sequence(object):
             else:
                 select_id = id_list[r - len(seq) + sample_size : r]
         return seq.get_slice(select_id)
-
 # end Sequence class definition
-
-
 # Table constructs and outputs a table of entries
 # corresponding to particular peaks
 class Table(object):
     """
-    entry_list = []
-    sequence = Sequence()
+    Table class uses Sequence data structure to
+    construct tables in MCASSIGN input format
+    ***
+    Instance variables:
+    sequence   -  makes an internal copy of Sequence
+    table_type - NCACX, NCOCX etc
+    entry_list - list of _Entry class objects containing table entries    
     """
     THIS = True
     THAT = False
@@ -263,6 +313,9 @@ class Table(object):
     # end __init__
 
     def copy(self):
+        """
+        makes a deep copy of the Table
+        """
         copy = Table(self.sequence)
         copy.entry_list = self.entry_list
         copy.table_type = self.table_type
@@ -312,10 +365,8 @@ class Table(object):
     def init_signal_table(self, table_type='NCACX',
                           format=['N', 'C', 'CA', 'CB', 'CG']):
         """
-        prepares the signal table based on the type of table
+        prepares the MCASSIGN signal table based on the type of table
         and specified output format
-        Usage: print_signal_table(table_type = 'NCACX',
-                                 format= ['N', 'CO', 'CA', 'CB', CG])
                                  
         Currently supported table types
             NCACX
@@ -398,6 +449,9 @@ class Table(object):
     # end __str__
         
     def print_seqAA(self):
+        """
+        returns amino acid sequence as a string of characters
+        """
         # return self.sequence.get_seqAA()
         string = ''
         d = self.sequence.get_seqAA()
@@ -410,7 +464,7 @@ class Table(object):
         
     def print_mcassign(self, format=['N', 'CA', 'CB', 'CG']):
         """
-        prints the table in MCASSIGN format
+        returns a string with a signal table in MCASSIGN format
         """
         output = ""
         # table header (excessive)        
@@ -445,61 +499,11 @@ class Table(object):
         pass
     # end print_MCASSIGN
 # end Table class definition
-
-
-# entries in a Table
-class _Entry(object):
-    # self:
-    # entry = {}
-    def __init__(self, atom_type_list,
-                 chem_shift_list,
-                 chem_shift_err_list=[],
-                 resi_type=['None']):
         
-        self.degeneracy = 1
-        self.resi_type = resi_type
-        self.entry = {}
-        if chem_shift_err_list == []:
-            for itemp in chem_shift_list:
-                chem_shift_err_list.append(0.2)
-        if len(chem_shift_list) != len(atom_type_list) or \
-           len(atom_type_list) != len(chem_shift_err_list):
-                sys.exit('Wrong entries: number ' +
-                         'of items in the argument lists must be the same')
-       
-        else:         
-            values = []
-            values = zip(chem_shift_list, chem_shift_err_list)           
-            self.entry = dict(zip(atom_type_list, values))
-    # end __init__
-    
-    def get_cs(self, atom_list):
-        l = []
-        for item in atom_list:
-            if item in self.entry:
-                l.append(self.entry[item][0])
-            else:
-                l.append(None)
-        return l
-    # end get_cs
-        
-    def get_cs_err(self, atom_list):
-        l = []
-        for item in atom_list:
-            if item in self.entry:
-                l.append(self.entry[item][1])
-            else:
-                l.append(None)
-        return l     
-    # end get_cs_err
-        
-    def __str__(self):
-        return str(self.entry)
-        # return string
-    # end __str__
-# end Entry class definition
-
-class Mcassign:
+class Mcassign(object):
+    """
+    Data structure constructed from the output tables  of MCASSIGN program.
+    """
     def __init__(self, filename):        
         alist = []
         with open(filename, 'r') as f:
@@ -538,6 +542,12 @@ class Mcassign:
     # end __init__
             
     def compare(self, that):
+        """
+        Compares two tables and outputs a dictionary
+        {'similar' : sim, 'different': diff}
+        sim  - table of strings found in table that
+        diff - table of strings not found in table that
+        """
         similar = []
         different = []
         for line, line2 in zip(self.list_table_line, self.list_strings):
@@ -548,9 +558,82 @@ class Mcassign:
         return {'similar': similar, 'different': different}
         # calculate the list of indices with chemical shifts
     # end compare
+# end Mcassign class definition
 
-# help class for Mcassign class
-class _TableLine:
+        
+
+
+# entries in a Table
+class _Entry(object):
+    """
+    helper class for Table entries
+    ***
+    Instance variables:
+    degeneracy - integer
+    resi_type  - residue type
+    entry      - dictionary  {atom_type : [chem_shift, chem_shift_err]}    
+    """
+    
+    def __init__(self, atom_type_list,
+                 chem_shift_list,
+                 chem_shift_err_list=[],
+                 resi_type=['None']):
+        
+        self.degeneracy = 1
+        self.resi_type = resi_type
+        self.entry = {}
+        if chem_shift_err_list == []:
+            for itemp in chem_shift_list:
+                chem_shift_err_list.append(0.2)
+        if len(chem_shift_list) != len(atom_type_list) or \
+           len(atom_type_list) != len(chem_shift_err_list):
+                sys.exit('Wrong entries: number ' +
+                         'of items in the argument lists must be the same')
+       
+        else:         
+            values = []
+            values = zip(chem_shift_list, chem_shift_err_list)           
+            self.entry = dict(zip(atom_type_list, values))
+    # end __init__
+    
+    def get_cs(self, atom_list):
+        """
+        return chemical shift for nuclei in the input list
+        """
+        l = []
+        for item in atom_list:
+            if item in self.entry:
+                l.append(self.entry[item][0])
+            else:
+                l.append(None)
+        return l
+    # end get_cs
+        
+    def get_cs_err(self, atom_list):
+        """
+        return chemical shift erros for nuclei in the input list
+        """
+        l = []
+        for item in atom_list:
+            if item in self.entry:
+                l.append(self.entry[item][1])
+            else:
+                l.append(None)
+        return l     
+    # end get_cs_err
+        
+    def __str__(self):
+        return str(self.entry)
+        # return string
+    # end __str__
+# end Entry class definition
+
+class _TableLine(object):
+    """
+    helper class representing the MCASSIGN output table entries
+    contains __cmp__ method allowing to compare the entries in 
+    different MCASSIGN tables
+    """
     def __init__(self, l):
         self.list = l
     # end __init__
@@ -573,11 +656,7 @@ class _TableLine:
                 return -1
             if item > 0:
                 return 1        
-# end Mcassing class definition
-
-
-
-
+# end _TableLine helper class to Mcassign
 
 # test client
 """
